@@ -1,9 +1,11 @@
 import express, { Request, Response } from "express";
 import { UserModel } from "./db";
+import { LinkModel } from "./db";
 import { ContentModel } from "./db";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { authMiddleware } from "./middleware";
+import { randomHash } from "./utils";
 
 export const JWTsecret = "kenx18";
 const app = express();
@@ -56,10 +58,11 @@ app.post("/api/vi/sign-in", async (req: Request, res: Response) => {
 app.post("/api/vi/content", authMiddleware, async (req, res) => {
   const link = req.body.link;
   const type = req.body.type;
+  const title = req.body.title;
   await ContentModel.create({
     link,
     type,
-    title: req.body.title,
+    title,
     // @ts-ignore
     userId: req.userId,
     tags: [],
@@ -69,6 +72,7 @@ app.post("/api/vi/content", authMiddleware, async (req, res) => {
     message: "Content added",
   });
 });
+
 app.get("/api/vi/content", authMiddleware, async (req, res) => {
   // @ts-ignore
   const userId = req.userId;
@@ -79,16 +83,58 @@ app.get("/api/vi/content", authMiddleware, async (req, res) => {
     content,
   });
 });
-app.delete("/api/vi/content", (req, res) => {
+
+app.delete("/api/vi/content", authMiddleware, async (req, res) => {
   const contentId = req.body.contentId;
 
   await ContentModel.deleteMany({
     contentId,
+    // @ts-ignore
     userId: req.userId,
   });
 
   res.json({
     message: "Deleted",
+  });
+});
+
+app.post("/api/vi/brain/share", authMiddleware, async (req, res) => {
+  const share: boolean = req.body.share;
+  if (share) {
+    const hash = randomHash(10);
+    await LinkModel.create({
+      // @ts-ignore
+      userId: req.userId,
+      hash: hash,
+    });
+
+    res.json({
+      hash: `/api/vi/brain/${hash}`,
+      message: "Link generated successfully.",
+    });
+  } else {
+    await LinkModel.deleteMany({
+      // @ts-ignore
+      userId: req.userId,
+    });
+    res.json({
+      message: "Link removed successfully..",
+    });
+  }
+});
+
+app.post("/api/vi/brain/:sharelink", async (req, res) => {
+  const hash = req.params.sharelink;
+  const user = await LinkModel.findOne({
+    hash,
+  });
+
+  const content = await ContentModel.find({
+    userId: user?.userId,
+  }).populate("userId", "username");
+
+  res.json({
+    content: content,
   });
 });
 

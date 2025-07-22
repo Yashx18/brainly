@@ -1,18 +1,15 @@
 import mongoose, { model, Schema, Types } from "mongoose";
+
 const UserSchema = new Schema({
   username: { type: String, unique: true },
   password: String,
 });
 
-export const UserModel = model("users", UserSchema);
-
-const tagSchema = new Schema({
+const TagSchema = new Schema({
   tag: { type: String, required: true },
 });
 
-export const tagModel = model("tag", tagSchema);
-
-const contentTypes = ["image", "video", "article", "audio"]; // Extend as needed
+const contentTypes = ["image", "video", "article", "audio", "URL"]; // Extend as needed
 
 const contentSchema = new Schema({
   link: { type: String, required: true },
@@ -22,4 +19,12 @@ const contentSchema = new Schema({
   userId: { type: Types.ObjectId, ref: "users", required: true },
 });
 
+const LinkSchema = new Schema({
+  hash: { type: String },
+  userId: { type: Types.ObjectId, ref: "users", unique: true, required: true },
+});
+
+export const TagModel = model("tag", TagSchema);
+export const LinkModel = model("Link", LinkSchema);
 export const ContentModel = model("Content", contentSchema);
+export const UserModel = model("users", UserSchema);
