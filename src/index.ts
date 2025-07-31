@@ -6,20 +6,35 @@ import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import { authMiddleware } from "./middleware";
 import { randomHash } from "./utils";
+import bcrypt from "bcrypt";
+import { z } from "zod";
 
 export const JWTsecret = "kenx18";
 const app = express();
 const PORT = 3000;
-
+const salt = 10;
 app.use(express.json());
 
+const signUpSchema = z.object({
+  username: z.string().min(3).max(12),
+  password: z.string().min(8).max(12),
+});
+
 app.post("/api/vi/sign-up", async (req: Request, res: Response) => {
-  const username = req.body.username;
-  const password = req.body.password;
+  const result = signUpSchema.safeParse(req.body);
+  if (!result.success) {
+    res.json({
+      message: "Invalid input",
+    });
+  }
+  // @ts-ignore
+  const { username, password } = result.data;
+
+  const hashedPassword = await bcrypt.hash(password, salt);
   try {
     await UserModel.create({
       username,
-      password,
+      password: hashedPassword,
     });
     res.json({
       message: "Sign up successful",
@@ -31,23 +46,40 @@ app.post("/api/vi/sign-up", async (req: Request, res: Response) => {
   }
 });
 
+const signInSchema = z.object({
+  username: z.string().min(3).max(12),
+  password: z.string().min(8).max(12),
+});
+
 app.post("/api/vi/sign-in", async (req: Request, res: Response) => {
-  const username = req.body.username;
-  const password = req.body.password;
+  const result = signUpSchema.safeParse(req.body);
+  if (!result.success) {
+    res.json({
+      message: "Invalid input",
+    });
+  }
+  // @ts-ignore
+  const { username, password } = result.data;
+
   const existingUser = await UserModel.findOne({
     username,
-    password,
   });
+
   if (existingUser) {
-    const token = jwt.sign(
-      {
-        id: existingUser._id,
-      },
-      JWTsecret
-    );
-    res.json({
-      token: token,
-    });
+    const dbPassword = existingUser.password;
+    // @ts-ignore
+    const match = await bcrypt.compare(password, dbPassword);
+    if (match) {
+      const token = jwt.sign(
+        {
+          id: existingUser._id,
+        },
+        JWTsecret
+      );
+      res.json({
+        token: token,
+      });
+    }
   } else {
     res.json({
       message: "Invalid credentials.",
@@ -55,10 +87,21 @@ app.post("/api/vi/sign-in", async (req: Request, res: Response) => {
   }
 });
 
+const contentZSchema = z.object({
+  link: z.string().min(12),
+  type: z.string().min(3),
+  title: z.string().min(4),
+});
+
 app.post("/api/vi/content", authMiddleware, async (req, res) => {
-  const link = req.body.link;
-  const type = req.body.type;
-  const title = req.body.title;
+  const result = contentZSchema.safeParse(req.body);
+  if (!result.success) {
+    res.json({
+      message: "Invalid input",
+    });
+  }
+  // @ts-ignore
+  const { link, type, title } = result.data;
   await ContentModel.create({
     link,
     type,
@@ -98,8 +141,21 @@ app.delete("/api/vi/content", authMiddleware, async (req, res) => {
   });
 });
 
+const brainShareSchema = z.object({
+  share: z.boolean(),
+});
+
 app.post("/api/vi/brain/share", authMiddleware, async (req, res) => {
-  const share: boolean = req.body.share;
+  const result = brainShareSchema.safeParse(req.body);
+
+  if (!result.success) {
+    res.json({
+      message: "Invalid input",
+    });
+  }
+  // @ts-ignore
+  const { share } = result.data;
+
   if (share) {
     const hash = randomHash(10);
     await LinkModel.create({

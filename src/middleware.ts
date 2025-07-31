@@ -9,7 +9,7 @@ export const authMiddleware = (
 ) => {
   const token = req.headers["authorization"];
 
-  const decodedToken = jwt.verify(token as string, JWTsecret);
+  const verifiedToken = jwt.verify(token as string, JWTsecret);
 
   if (!token) {
     return res.status(401).json({
@@ -17,9 +17,9 @@ export const authMiddleware = (
     });
   }
 
-  if (decodedToken) {
+  if (verifiedToken) {
     // @ts-ignore
-    req.userId = decodedToken.id;
+    req.userId = verifiedToken.id;
     next();
   } else {
     res.status(403).json({
