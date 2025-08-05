@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import cors from 'cors';
 import { UserModel } from "./db";
 import { LinkModel } from "./db";
 import { ContentModel } from "./db";
@@ -14,6 +15,7 @@ const app = express();
 const PORT = 3000;
 const salt = 10;
 app.use(express.json());
+app.use(cors())
 
 const signUpSchema = z.object({
   username: z.string().min(3).max(12),
