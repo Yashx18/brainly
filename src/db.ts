@@ -9,7 +9,7 @@ const TagSchema = new Schema({
   tag: { type: String, required: true },
 });
 
-const contentTypes = ["image", "video", "article", "audio", "URL"]; // Extend as needed
+const contentTypes = ["image", "video", "article", "audio", "URL", "text"]; // Extend as needed
 
 const contentSchema = new Schema({
   link: { type: String, required: true },
