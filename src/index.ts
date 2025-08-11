@@ -110,7 +110,8 @@ app.post("/api/vi/content", authMiddleware, async (req, res) => {
     title,
     // @ts-ignore
     userId: req.userId,
-    tags: [],
+    // @ts-ignore
+    tags: [req.userId],
   });
 
   res.json({
