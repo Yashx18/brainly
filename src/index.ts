@@ -156,8 +156,7 @@ app.post("/api/vi/brain/share", authMiddleware, async (req, res) => {
       message: "Invalid input",
     });
   }
-  // @ts-ignore
-  const { share } = result.data;
+  const share  = result.data;
 
   if (share) {
     const hash = randomHash(10);
