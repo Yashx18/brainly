@@ -7,7 +7,7 @@ export const authMiddleware = (
   res: Response,
   next: NextFunction
 ) => {
-  const token = req.headers["authorization"];
+  const token = req.cookies.accessToken;
 
   const verifiedToken = jwt.verify(token as string, JWTsecret);
 

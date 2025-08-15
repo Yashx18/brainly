@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import cookieParser from "cookie-parser";
 import cors from 'cors';
 import { UserModel } from "./db";
 import { LinkModel } from "./db";
@@ -15,7 +16,11 @@ const app = express();
 const PORT = 3000;
 const salt = 10;
 app.use(express.json());
-app.use(cors())
+app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true,
+}))
+app.use(cookieParser());
 
 const signUpSchema = z.object({
   username: z.string().min(3).max(12),
@@ -54,7 +59,7 @@ const signInSchema = z.object({
 });
 
 app.post("/api/vi/sign-in", async (req: Request, res: Response) => {
-  const result = signUpSchema.safeParse(req.body);
+  const result = signInSchema.safeParse(req.body);
   if (!result.success) {
     res.json({
       message: "Invalid input",
@@ -76,11 +81,19 @@ app.post("/api/vi/sign-in", async (req: Request, res: Response) => {
         {
           id: existingUser._id,
         },
-        JWTsecret
+        JWTsecret,
+        {expiresIn: "2d"}
       );
+
+       res.cookie("accessToken", token, {
+         httpOnly: true, 
+         secure: false, 
+         sameSite: "strict",
+         maxAge: 1000 * 60 * 60,
+       });
       res.json({
-        token: token,
-      });
+         message: "Sign in Successful !"
+       })
     }
   } else {
     res.json({
