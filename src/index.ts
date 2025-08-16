@@ -10,6 +10,7 @@ import { authMiddleware } from "./middleware";
 import { randomHash } from "./utils";
 import bcrypt from "bcrypt";
 import { z } from "zod";
+import multer from "multer";
 
 export const JWTsecret = "kenx18";
 const app = express();
@@ -21,6 +22,8 @@ app.use(cors({
   credentials: true,
 }))
 app.use(cookieParser());
+const upload = multer({ dest: './uploads' }); 
+app.use("/uploads", express.static("uploads"));
 
 const signUpSchema = z.object({
   username: z.string().min(3).max(12),
@@ -61,7 +64,7 @@ const signInSchema = z.object({
 app.post("/api/vi/sign-in", async (req: Request, res: Response) => {
   const result = signInSchema.safeParse(req.body);
   if (!result.success) {
-    res.json({
+    return res.json({
       message: "Invalid input",
     });
   }
@@ -103,34 +106,64 @@ app.post("/api/vi/sign-in", async (req: Request, res: Response) => {
 });
 
 const contentZSchema = z.object({
-  link: z.string().min(12),
-  type: z.string().min(3),
   title: z.string().min(4),
+  type: z.enum(["text", "URL", "image", "video"]),
+  link: z.string().min(12).optional(),
 });
 
-app.post("/api/vi/content", authMiddleware, async (req, res) => {
-  const result = contentZSchema.safeParse(req.body);
-  if (!result.success) {
-    res.json({
-      message: "Invalid input",
-    });
+app.post(
+  "/api/vi/content",
+  authMiddleware,
+  upload.single("file"),
+  async (req, res) => {
+    console.log(req.file);
+  
+    const result = contentZSchema.safeParse(req.body);
+    if (!result.success) {
+      res.json({
+        message: "Invalid input",
+      });
+    }
+    // @ts-ignore
+    if (result.success) {
+      const { type, title } = result.data;
+      if (type == "text" || type == "URL") {
+        const { link } = result.data;
+
+        await ContentModel.create({
+          link,
+          type,
+          title,
+          // @ts-ignore
+          userId: req.userId,
+          // @ts-ignore
+          tags: [req.userId],
+        });
+
+        return res.json({
+          message: "Content added (Text/URL)",
+        });
+      }
+      if (type == "image" || type == "video") {
+        const link = `uploads/${req.file?.filename}`;
+        await ContentModel.create({
+          link,
+          type,
+          title,
+          // @ts-ignore
+          userId: req.userId,
+          // @ts-ignore
+          tags: [req.userId],
+        });
+
+        return res.json({
+          message: "Content added (File)",
+          filePath: link,
+        });
+      }
+    }
   }
-  // @ts-ignore
-  const { link, type, title } = result.data;
-  await ContentModel.create({
-    link,
-    type,
-    title,
-    // @ts-ignore
-    userId: req.userId,
-    // @ts-ignore
-    tags: [req.userId],
-  });
-
-  res.json({
-    message: "Content added",
-  });
-});
+);
 
 app.get("/api/vi/content", authMiddleware, async (req, res) => {
   // @ts-ignore
