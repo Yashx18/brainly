@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import cookieParser from "cookie-parser";
-import cors from 'cors';
+import cors from "cors";
 import { UserModel } from "./db";
 import { LinkModel } from "./db";
 import { ContentModel } from "./db";
@@ -10,20 +10,37 @@ import { authMiddleware } from "./middleware";
 import { randomHash } from "./utils";
 import bcrypt from "bcrypt";
 import { z } from "zod";
+import path from "path";
 import multer from "multer";
 
 export const JWTsecret = "kenx18";
+
 const app = express();
 const PORT = 3000;
 const salt = 10;
+
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "./uploads");
+  },
+  filename: (req, file, cb) => {
+    // keep unique filename + extension
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
+
 app.use(express.json());
-app.use(cors({
-  origin: "http://localhost:5173",
-  credentials: true,
-}))
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
 app.use(cookieParser());
-const upload = multer({ dest: './uploads' }); 
-app.use("/uploads", express.static("uploads"));
+const upload = multer({ storage });
 
 const signUpSchema = z.object({
   username: z.string().min(3).max(12),
@@ -85,18 +102,18 @@ app.post("/api/vi/sign-in", async (req: Request, res: Response) => {
           id: existingUser._id,
         },
         JWTsecret,
-        {expiresIn: "2d"}
+        { expiresIn: "2d" }
       );
 
-       res.cookie("accessToken", token, {
-         httpOnly: true, 
-         secure: false, 
-         sameSite: "strict",
-         maxAge: 1000 * 60 * 60,
-       });
+      res.cookie("accessToken", token, {
+        httpOnly: true,
+        secure: false,
+        sameSite: "strict",
+        maxAge: 1000 * 60 * 60,
+      });
       res.json({
-         message: "Sign in Successful !"
-       })
+        message: "Sign in Successful !",
+      });
     }
   } else {
     res.json({
@@ -104,6 +121,7 @@ app.post("/api/vi/sign-in", async (req: Request, res: Response) => {
     });
   }
 });
+
 
 const contentZSchema = z.object({
   title: z.string().min(4),
@@ -117,7 +135,7 @@ app.post(
   upload.single("file"),
   async (req, res) => {
     console.log(req.file);
-  
+
     const result = contentZSchema.safeParse(req.body);
     if (!result.success) {
       res.json({
@@ -145,7 +163,7 @@ app.post(
         });
       }
       if (type == "image" || type == "video") {
-        const link = `uploads/${req.file?.filename}`;
+        const link = `/uploads/${req.file?.filename}`;
         await ContentModel.create({
           link,
           type,
@@ -202,7 +220,7 @@ app.post("/api/vi/brain/share", authMiddleware, async (req, res) => {
       message: "Invalid input",
     });
   }
-  const share  = result.data;
+  const share = result.data;
 
   if (share) {
     const hash = randomHash(10);
