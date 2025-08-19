@@ -93,32 +93,34 @@ app.post("/api/vi/sign-in", async (req: Request, res: Response) => {
   });
 
   if (existingUser) {
-    const dbPassword = existingUser.password;
-    // @ts-ignore
-    const match = await bcrypt.compare(password, dbPassword);
-    if (match) {
-      const token = jwt.sign(
-        {
-          id: existingUser._id,
-        },
-        JWTsecret,
-        { expiresIn: "2d" }
-      );
+    try {
+      const dbPassword = existingUser.password;
+      // @ts-ignore
+      const match = await bcrypt.compare(password, dbPassword);
+      if (match) {
+        const token = jwt.sign(
+          {
+            id: existingUser._id,
+          },
+          JWTsecret,
+          { expiresIn: "2d" }
+        );
 
-      res.cookie("accessToken", token, {
-        httpOnly: true,
-        secure: false,
-        sameSite: "strict",
-        maxAge: 1000 * 60 * 60,
-      });
-      res.json({
-        message: "Sign in Successful !",
-      });
+        res.cookie("accessToken", token, {
+          httpOnly: true,
+          secure: false,
+          sameSite: "strict",
+          maxAge: 1000 * 60 * 60,
+        });
+        res.json({
+          message: "Sign in Successful !",
+        });
+      }
     }
-  } else {
-    res.json({
-      message: "Invalid credentials.",
-    });
+    catch (error) {
+      console.error(error);
+      
+    }
   }
 });
 
