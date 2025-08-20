@@ -19,16 +19,21 @@ const app = express();
 const PORT = 3000;
 const salt = 10;
 
-
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "./uploads");
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, "uploads/images");
+    } else if (file.mimetype.startsWith("video/")) {
+      cb(null, "uploads/videos");
+    } else {
+      cb(new Error("Invalid file type"), "");
+    }
   },
   filename: (req, file, cb) => {
-    // keep unique filename + extension
     cb(null, Date.now() + path.extname(file.originalname));
   },
 });
+
 
 app.use(express.json());
 app.use(
@@ -110,7 +115,7 @@ app.post("/api/vi/sign-in", async (req: Request, res: Response) => {
           httpOnly: true,
           secure: false,
           sameSite: "strict",
-          maxAge: 1000 * 60 * 60,
+          maxAge: 1000 * 60 * 60 * 24,
         });
         res.json({
           message: "Sign in Successful !",
@@ -149,6 +154,7 @@ app.post(
       const { type, title } = result.data;
       if (type == "text" || type == "URL") {
         const { link } = result.data;
+        
 
         await ContentModel.create({
           link,
@@ -164,8 +170,8 @@ app.post(
           message: "Content added (Text/URL)",
         });
       }
-      if (type == "image" || type == "video") {
-        const link = `/uploads/${req.file?.filename}`;
+      if (type == "image" ) {
+        const link = `/uploads/images/${req.file?.filename}`;
         await ContentModel.create({
           link,
           type,
@@ -180,6 +186,17 @@ app.post(
           message: "Content added (File)",
           filePath: link,
         });
+      } else if (type == "video") {
+        const link = `/uploads/videos/${req.file?.filename}`;
+        await ContentModel.create({
+          link, 
+          type ,
+          title,
+          // @ts-ignore
+          userId: req.userId,
+          // @ts-ignore
+          tags: [req.userId]
+        })
       }
     }
   }
