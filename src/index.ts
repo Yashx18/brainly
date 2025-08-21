@@ -12,6 +12,7 @@ import bcrypt from "bcrypt";
 import { z } from "zod";
 import path from "path";
 import multer from "multer";
+import { log } from "console";
 
 export const JWTsecret = "kenx18";
 
@@ -115,7 +116,7 @@ app.post("/api/vi/sign-in", async (req: Request, res: Response) => {
           httpOnly: true,
           secure: false,
           sameSite: "strict",
-          maxAge: 1000 * 60 * 60 * 24,
+          maxAge: 1000 * 60 * 60 * 24 * 2,
         });
         res.json({
           message: "Sign in Successful !",
@@ -253,6 +254,8 @@ app.post("/api/vi/brain/share", authMiddleware, async (req, res) => {
       hash: `/api/vi/brain/${hash}`,
       message: "Link generated successfully.",
     });
+
+    // console.log(hash)
   } else {
     await LinkModel.deleteMany({
       // @ts-ignore
