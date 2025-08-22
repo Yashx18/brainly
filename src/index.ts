@@ -184,7 +184,7 @@ app.post(
         });
 
         return res.json({
-          message: "Content added (File)",
+          message: "Content added (Image)",
           filePath: link,
         });
       } else if (type == "video") {
@@ -198,6 +198,10 @@ app.post(
           // @ts-ignore
           tags: [req.userId]
         })
+        return res.json({
+          message: "Content added (Video)",
+          filePath: link,
+        });
       }
     }
   }
@@ -215,10 +219,25 @@ app.get("/api/vi/content", authMiddleware, async (req, res) => {
 });
 
 app.delete("/api/vi/content", authMiddleware, async (req, res) => {
-  const contentId = req.body.contentId;
 
+  const title = req.body.title;
+  const link = req.body.link;
+  const type = req.body.type;
+  
+  const resultId = await ContentModel.find({
+    title,
+    link,
+    type
+  }, {
+    _id: 1
+  })
+  
+  const contentId = resultId[0]._id;
+  console.log(contentId);
+  
+  
   await ContentModel.deleteMany({
-    contentId,
+    _id: contentId,
     // @ts-ignore
     userId: req.userId,
   });
@@ -278,7 +297,7 @@ app.post("/api/vi/brain/:sharelink", async (req, res) => {
   }).populate("userId", "username");
 
   res.json({
-    content: content,
+    data: content,
   });
 });
 
