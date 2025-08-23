@@ -218,6 +218,47 @@ app.get("/api/vi/content", authMiddleware, async (req, res) => {
   });
 });
 
+
+const updateContentZSchema = z.object({
+  title: z.string().min(4),
+  type: z.enum(["text", "URL", "image", "video"]),
+  link: z.string().min(12).optional(),
+});
+
+// update content
+app.put("/api/vi/content/:id", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const result = updateContentZSchema.safeParse(req.body);
+    if (!result.success) {
+      res.json({
+        message: "Invalid input",
+      });
+    }
+    const { id } = req.params;
+    // @ts-ignore
+    const { title, link , type} = result.data;
+
+    const content = await ContentModel.findOneAndUpdate(
+      { _id: id, userId: (req as any).userId },
+      { title, link, type },
+      { new: true } 
+    );
+
+    if (!content) {
+      return res.status(404).json({ message: "Content not found or not authorized" });
+    }
+
+    res.json({
+      message: "Content updated successfully",
+      content,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Update failed" });
+  }
+});
+
+
 app.delete("/api/vi/content", authMiddleware, async (req, res) => {
 
   const title = req.body.title;
@@ -270,11 +311,11 @@ app.post("/api/vi/brain/share", authMiddleware, async (req, res) => {
     });
 
     res.json({
-      hash: `/api/vi/brain/${hash}`,
+      hash: `/brain/${hash}`,
       message: "Link generated successfully.",
     });
 
-    // console.log(hash)
+    console.log(`/brain/${hash}`);
   } else {
     await LinkModel.deleteMany({
       // @ts-ignore
@@ -297,7 +338,7 @@ app.post("/api/vi/brain/:sharelink", async (req, res) => {
   }).populate("userId", "username");
 
   res.json({
-    data: content,
+    info: content,
   });
 });
 
