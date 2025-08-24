@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express, { Request, response, Response } from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { UserModel } from "./db";
@@ -219,6 +219,43 @@ app.get("/api/vi/content", authMiddleware, async (req, res) => {
 });
 
 
+const getIdZSchema = z.object({
+  title: z.string().min(4),
+  type: z.enum(["text", "URL", "image", "video"]),
+  link: z.string().min(12).optional(),
+});
+
+app.post("/api/vi/getId", authMiddleware, async (req: Request, res: Response) => {
+  const result = getIdZSchema.safeParse(req.body)
+  if (!result.data) {
+    res.json({
+      message: "Invalid Input in getting ID",
+    })
+  }
+
+  // @ts-ignore
+  const { title, link, type } = result.data;
+
+  try {
+    const result = await ContentModel.find({
+      title,
+      link,
+      type
+    },{
+    _id: 1
+  }
+    )
+    console.log(result[0]._id );
+    res.json({
+      content: result
+    })
+    
+  } catch (error) {
+    console.log(error);
+    
+  }
+})
+
 const updateContentZSchema = z.object({
   title: z.string().min(4),
   type: z.enum(["text", "URL", "image", "video"]),
@@ -226,37 +263,75 @@ const updateContentZSchema = z.object({
 });
 
 // update content
-app.put("/api/vi/content/:id", authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const result = updateContentZSchema.safeParse(req.body);
-    if (!result.success) {
+app.put(
+  "/api/vi/content/:id",
+  authMiddleware,
+  upload.single("file"),
+  async (req: Request, res: Response) => {
+    try {
+      const result = updateContentZSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({
+          message: "Invalid input while updating data",
+        });
+      }
+      const { id } = req.params;
+      // @ts-ignore
+      const { title, type } = result.data;
+      console.log(result.data);
+
+      // const content = await ContentModel.findOneAndUpdate(
+      //   { _id: id, userId: (req as any).userId },
+      //   { title, link, type },
+      //   { new: true }
+      // );
+      if (type == "text" || type == "URL") {
+        const { link } = result.data;
+          await ContentModel.findOneAndUpdate(
+            { _id: id, userId: (req as any).userId },
+            { title, link, type },
+            { new: true }
+          )
+
+        return res.json({
+          message: "Content Updated (Text/URL)",
+        });
+      }
+      if (type == "image") {
+        const link = `/uploads/images/${req.file?.filename}`;
+        await ContentModel.findOneAndUpdate(
+          { _id: id, userId: (req as any).userId },
+          { title, link, type },
+          { new: true }
+        );
+
+        return res.json({
+          message: "Content Updated (Image)",
+          filePath: link,
+        });
+      } else if (type == "video") {
+        const link = `/uploads/videos/${req.file?.filename}`;
+        await ContentModel.findOneAndUpdate(
+          { _id: id, userId: (req as any).userId },
+          { title, link, type },
+          { new: true }
+        );
+        return res.json({
+          message: "Content updated (Video)",
+          filePath: link,
+        });
+      }
+      
+
       res.json({
-        message: "Invalid input",
+        message: "Content updated successfully",
       });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Update failed" });
     }
-    const { id } = req.params;
-    // @ts-ignore
-    const { title, link , type} = result.data;
-
-    const content = await ContentModel.findOneAndUpdate(
-      { _id: id, userId: (req as any).userId },
-      { title, link, type },
-      { new: true } 
-    );
-
-    if (!content) {
-      return res.status(404).json({ message: "Content not found or not authorized" });
-    }
-
-    res.json({
-      message: "Content updated successfully",
-      content,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Update failed" });
   }
-});
+);
 
 
 app.delete("/api/vi/content", authMiddleware, async (req, res) => {
