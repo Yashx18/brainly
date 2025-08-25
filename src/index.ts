@@ -1,4 +1,4 @@
-import express, { Request, response, Response } from "express";
+import express, { Request, Response } from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { UserModel } from "./db";
@@ -12,13 +12,15 @@ import bcrypt from "bcrypt";
 import { z } from "zod";
 import path from "path";
 import multer from "multer";
-import { log } from "console";
+import dotenv from "dotenv";
 
-export const JWTsecret = "kenx18";
+dotenv.config();
+export const JWTsecret = process.env.JWT_SECRET as string;
 
 const app = express();
-const PORT = 3000;
-const salt = 10;
+const PORT = process.env.PORT;
+const salt = process.env.SALT as string;
+const mongoURL = process.env.MONGO_URL as string;
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -39,7 +41,7 @@ const storage = multer.diskStorage({
 app.use(express.json());
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: process.env.APP_URL as string,
     credentials: true,
   })
 );
@@ -278,7 +280,7 @@ app.put(
       const { id } = req.params;
       // @ts-ignore
       const { title, type } = result.data;
-      console.log(result.data);
+      console.log(req.file);
 
       // const content = await ContentModel.findOneAndUpdate(
       //   { _id: id, userId: (req as any).userId },
@@ -419,7 +421,7 @@ app.post("/api/vi/brain/:sharelink", async (req, res) => {
 
 async function connectdb() {
   await mongoose.connect(
-    "mongodb+srv://Ken:93549387YH@cluster0.rrelns0.mongodb.net/Brainly"
+    `${mongoURL}`
   );
   console.log("DB Connnected");
 }
