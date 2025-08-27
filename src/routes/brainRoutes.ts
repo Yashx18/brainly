@@ -17,19 +17,25 @@ brainRouter.post(
     const result = brainShareSchema.safeParse(req.body);
 
     if (!result.success) {
-      res.json({
+      return res.json({
         message: "Invalid input",
       });
     }
-    const share = result.data;
+    // @ts-ignore
+    const { share } = result.data;
+    console.log(share);
 
     if (share) {
       const hash = randomHash(10);
-      await LinkModel.create({
+      const link = await LinkModel.findOneAndUpdate(
         // @ts-ignore
-        userId: req.userId,
-        hash: hash,
-      });
+        { userId: req.userId },
+        { hash },
+        { upsert: true, new: true }
+      );
+
+      console.log(link);
+      
 
       res.json({
         hash: `/brain/${hash}`,
@@ -49,24 +55,21 @@ brainRouter.post(
   }
 );
 
-brainRouter.post(
-  "/:sharelink",
-  async (req: Request, res: Response) => {
-    const hash = req.params.sharelink;
-    console.log(hash);
-    
-    const user = await LinkModel.findOne({
-      hash,
-    });
+brainRouter.post("/:sharelink", async (req: Request, res: Response) => {
+  const hash = req.params.sharelink;
+  console.log(hash);
 
-    const content = await ContentModel.find({
-      userId: user?.userId,
-    }).populate("userId", "username");
+  const user = await LinkModel.findOne({
+    hash,
+  });
 
-    res.json({
-      info: content,
-    });
-  }
-);
+  const content = await ContentModel.find({
+    userId: user?.userId,
+  }).populate("userId", "username");
+
+  res.json({
+    info: content,
+  });
+});
 
 export default brainRouter;
