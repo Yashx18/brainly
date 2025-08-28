@@ -4,6 +4,7 @@ import { z } from "zod";
 import { Router, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import dotenv from "dotenv";
+import { authMiddleware } from "../middleware";
 
 const authRouter = Router();
 
@@ -91,5 +92,27 @@ authRouter.post("/sign-in", async (req: Request, res: Response) => {
     }
   }
 });
+
+authRouter.get(
+  "/userInfo",
+  authMiddleware,
+  async (req: Request, res: Response) => {
+    // @ts-ignore
+    const userId = req?.userId;
+
+    try {
+      const response = await UserModel.findOne({
+        _id: userId,
+      });
+      console.log(response);
+      res.json({
+        info: response?.username
+      })
+    } catch (error) {
+      console.error(error);
+      
+    }
+  }
+);
 
 export default authRouter;
