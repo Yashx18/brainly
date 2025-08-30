@@ -9,7 +9,6 @@ import brainRouter from "./routes/brainRoutes";
 import contentRouter from "./routes/contentRoutes";
 
 dotenv.config();
-export const JWTsecret = process.env.JWT_SECRET as string;
 
 const app = express();
 const PORT = process.env.PORT;

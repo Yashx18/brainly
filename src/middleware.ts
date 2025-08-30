@@ -1,29 +1,36 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { JWTsecret } from ".";
 
 export const authMiddleware = (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  const token = req.cookies.accessToken;
+  try {
+    const token = req.cookies.accessToken;
+    if (!token) {
+      return res.status(401).json({
+        message: "Token not found",
+      });
+    }
 
-  const verifiedToken = jwt.verify(token as string, JWTsecret);
+    const verifiedToken = jwt.verify(
+      token,
+      process.env.JWT_SECRET as string
+    ) as {
+      id: string;
+    };
 
-  if (!token) {
-    return res.status(401).json({
-      message: "Token not found",
-    });
-  }
-
-  if (verifiedToken) {
-    // @ts-ignore
-    req.userId = verifiedToken.id;
-    next();
-  } else {
-    res.status(403).json({
-      message: "You are not logged in.",
-    });
+    if (verifiedToken) {
+      // @ts-ignore
+      req.userId = verifiedToken.id;
+      next();
+    } else {
+      res.status(403).json({
+        message: "You are not logged in.",
+      });
+    }
+  } catch (error) {
+    return console.error(error);
   }
 };
