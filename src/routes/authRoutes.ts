@@ -10,7 +10,7 @@ const authRouter = Router();
 
 dotenv.config();
 
-const salt = process.env.SALT as string;
+const salt = Number(process.env.SALT) || 10;
 export const JWTsecret = process.env.JWT_SECRET as string;
 
 const signUpSchema = z.object({
@@ -27,7 +27,6 @@ authRouter.post("/sign-up", async (req: Request, res: Response) => {
   }
   // @ts-ignore
   const { username, password } = result.data;
-
   const hashedPassword = await bcrypt.hash(password, salt);
   try {
     await UserModel.create({
@@ -35,7 +34,8 @@ authRouter.post("/sign-up", async (req: Request, res: Response) => {
       password: hashedPassword,
     });
     res.json({
-      message: "Sign up successful",
+      done: true,
+      message: "Sign up successfull",
     });
   } catch (e: any) {
     res.status(401).json({
@@ -85,6 +85,7 @@ authRouter.post("/sign-in", async (req: Request, res: Response) => {
         });
         res.json({
           message: "Sign in Successful !",
+          done: true,
         });
       }
     } catch (error) {
@@ -104,13 +105,11 @@ authRouter.get(
       const response = await UserModel.findOne({
         _id: userId,
       });
-      console.log(response);
       res.json({
-        info: response?.username
-      })
+        info: response?.username,
+      });
     } catch (error) {
       console.error(error);
-      
     }
   }
 );
