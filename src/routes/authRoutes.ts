@@ -114,4 +114,15 @@ authRouter.get(
   }
 );
 
+authRouter.post("/logout", (req: Request, res: Response) => {
+  res.clearCookie("accessToken", {
+    httpOnly: true,
+    secure: true, 
+    sameSite: 'strict'
+  });
+  return res.status(200).json({ message: "Logged out successfully" });
+});
+
+
+
 export default authRouter;
