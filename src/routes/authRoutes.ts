@@ -14,7 +14,7 @@ const salt = Number(process.env.SALT) || 10;
 export const JWTsecret = process.env.JWT_SECRET as string;
 
 const signUpSchema = z.object({
-  username: z.string().min(3).max(12),
+  username: z.string().min(2).max(12),
   password: z.string().min(8).max(12),
 });
 
@@ -45,7 +45,7 @@ authRouter.post("/sign-up", async (req: Request, res: Response) => {
 });
 
 const signInSchema = z.object({
-  username: z.string().min(3).max(12),
+  username: z.string().min(2).max(12),
   password: z.string().min(8).max(12),
 });
 
@@ -87,6 +87,10 @@ authRouter.post("/sign-in", async (req: Request, res: Response) => {
           message: "Sign in Successful !",
           done: true,
         });
+      }else{
+	   return res.json({
+		      message: "Invalid Username or Password, Try again !",
+	      })
       }
     } catch (error) {
       console.error(error);
