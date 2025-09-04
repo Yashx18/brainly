@@ -13,7 +13,7 @@ export const JWTsecret = process.env.JWT_SECRET as string;
 
 const app = express();
 const PORT = process.env.PORT;
-const mongoURL = process.env.MONGO_URL as string;
+const mongoURL = process.env.MONGO_URL;
 
 app.use(express.json());
 app.use(
@@ -36,7 +36,7 @@ async function connectdb() {
 }
 
 connectdb();
-// app.listen(PORT, () => {
-//   console.log(`Server is running at 'http://localhost:${PORT}'`);
-// });
-export default app;
+app.listen(PORT, () => {
+  console.log(`Server is running at 'http://localhost:${PORT}'`);
+});
+// export default app;
