@@ -18,7 +18,7 @@ const mongoURL = process.env.MONGO_URL;
 app.use(express.json());
 app.use(
   cors({
-    origin: process.env.APP_URL as string,
+    origin: process.env.APP_URL,
     credentials: true,
   })
 );
@@ -37,6 +37,6 @@ async function connectdb() {
 
 connectdb();
 app.listen(PORT, () => {
-  // console.log(`Server is running at 'http://localhost:${PORT}'`);
+  console.log('Server running');
+  
 });
-// export default app;
