@@ -2,57 +2,87 @@ import { z } from "zod";
 import { ContentModel } from "../db";
 import { authMiddleware } from "../middleware";
 import { Request, Response, Router } from "express";
-import path from "path";
 import multer from "multer";
+import cloudinary from "../cloudinary";
+import streamifier from "streamifier";
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
-      cb(null, "uploads/images");
-    } else if (file.mimetype.startsWith("video/")) {
-      cb(null, "uploads/videos");
-    } else {
-      cb(new Error("Invalid file type"), "");
-    }
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
-  },
-});
-
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
 const contentRouter = Router();
 
+// Validation Schemas
 const contentZSchema = z.object({
   title: z.string().min(4),
   type: z.enum(["text", "URL", "image", "video"]),
-  link: z.string().min(12).optional(),
+  link: z.string().min(4).optional(),
 });
+
+const getIdZSchema = z.object({
+  title: z.string().min(4),
+  type: z.enum(["text", "URL", "image", "video"]),
+  link: z.string().min(4).optional(),
+});
+
+const updateContentZSchema = z.object({
+  title: z.string().min(4),
+  type: z.enum(["text", "URL", "image", "video"]),
+  link: z.string().min(4).optional(),
+});
+
+const deleteContentZSchema = z.object({
+  title: z.string().min(4),
+  type: z.enum(["text", "URL", "image", "video"]),
+  link: z.string().min(4).optional(),
+});
+
+const uploadToCloudinary = (
+  fileBuffer: Buffer,
+  resourceType: "image" | "video" | "auto" = "auto"
+) =>
+  new Promise<{ secure_url: string }>((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { resource_type: resourceType },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result as { secure_url: string });
+      }
+    );
+    streamifier.createReadStream(fileBuffer).pipe(uploadStream);
+  });
 
 contentRouter.post(
   "/",
   authMiddleware,
   upload.single("file"),
-  async (req, res) => {
-    console.log(req.file);
+  async (req: Request, res: Response) => {
+    try {
+      const result = contentZSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Invalid input" });
+      }
 
-    const result = contentZSchema.safeParse(req.body);
-    if (!result.success) {
-      res.json({
-        message: "Invalid input",
-      });
-    }
-    // @ts-ignore
-    if (result.success) {
-      const { type, title } = result.data;
-      if (type == "text" || type == "URL") {
-        const { link } = result.data;
+      const { type, title, link } = result.data;
 
+      if (type === "text" || type === "URL") {
         await ContentModel.create({
-          link,
-          type,
           title,
+          type,
+          link,
+          // @ts-ignore
+          userId: req.userId,
+          // @ts-ignore
+          tags: [req.userId],
+        });
+        return res.json({ message: "Content added (Text/URL)" });
+      }
+
+      if (req.file) {
+        const uploaded = await uploadToCloudinary(req.file.buffer, "auto");
+        await ContentModel.create({
+          title,
+          type,
+          link: uploaded.secure_url,
           // @ts-ignore
           userId: req.userId,
           // @ts-ignore
@@ -60,42 +90,15 @@ contentRouter.post(
         });
 
         return res.json({
-          message: "Content added (Text/URL)",
+          message: `Content added (${type})`,
+          filePath: uploaded.secure_url,
         });
       }
-      if (type == "image") {
-        const link = `/uploads/images/${req.file?.filename}`;
-        await ContentModel.create({
-          link,
-          type,
-          title,
-          // @ts-ignore
-          userId: req.userId,
-          // @ts-ignore
-          tags: [req.userId],
-        });
 
-        return res.json({
-          message: "Content added (Image)",
-          filePath: link,
-        });
-      } else if (type == "video") {
-        const link = `/uploads/videos/${req.file?.filename}`;
-        await ContentModel.create({
-          link,
-          type,
-          title,
-          // @ts-ignore
-          userId: req.userId,
-          // @ts-ignore
-          tags: [req.userId],
-        });
-        
-        return res.json({
-          message: "Content added (Video)",
-          filePath: link,
-        });
-      }
+      return res.status(400).json({ message: "File missing" });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Something went wrong" });
     }
   }
 );
@@ -103,18 +106,11 @@ contentRouter.post(
 contentRouter.get("/", authMiddleware, async (req, res) => {
   // @ts-ignore
   const userId = req.userId;
-  const content = await ContentModel.find({
-    userId: userId,
-  }).populate("userId", "username");
-  res.json({
-    content,
-  });
-});
-
-const getIdZSchema = z.object({
-  title: z.string().min(4),
-  type: z.enum(["text", "URL", "image", "video"]),
-  link: z.string().min(12).optional(),
+  const content = await ContentModel.find({ userId }).populate(
+    "userId",
+    "username"
+  );
+  res.json({ content });
 });
 
 contentRouter.post(
@@ -122,43 +118,22 @@ contentRouter.post(
   authMiddleware,
   async (req: Request, res: Response) => {
     const result = getIdZSchema.safeParse(req.body);
-    if (!result.data) {
-      res.json({
-        message: "Invalid Input in getting ID",
-      });
+    if (!result.success) {
+      return res.json({ message: "Invalid Input in getting ID" });
     }
 
-    // @ts-ignore
     const { title, link, type } = result.data;
 
     try {
-      const result = await ContentModel.find(
-        {
-          title,
-          link,
-          type,
-        },
-        {
-          _id: 1,
-        }
-      );
-      console.log(result[0]._id);
-      res.json({
-        content: result,
-      });
+      const found = await ContentModel.find({ title, link, type }, { _id: 1 });
+      res.json({ content: found });
     } catch (error) {
       console.log(error);
+      res.status(500).json({ message: "Failed to fetch ID" });
     }
   }
 );
 
-const updateContentZSchema = z.object({
-  title: z.string().min(4),
-  type: z.enum(["text", "URL", "image", "video"]),
-  link: z.string().min(12).optional(),
-});
-
-// update content
 contentRouter.put(
   "/:id",
   authMiddleware,
@@ -167,60 +142,37 @@ contentRouter.put(
     try {
       const result = updateContentZSchema.safeParse(req.body);
       if (!result.success) {
-        return res.status(400).json({
-          message: "Invalid input while updating data",
-        });
+        return res
+          .status(400)
+          .json({ message: "Invalid input while updating data" });
       }
+
       const { id } = req.params;
-      // @ts-ignore
-      const { title, type } = result.data;
-      console.log(req.file);
+      const { title, type, link } = result.data;
 
-      // const content = await ContentModel.findOneAndUpdate(
-      //   { _id: id, userId: (req as any).userId },
-      //   { title, link, type },
-      //   { new: true }
-      // );
-      if (type == "text" || type == "URL") {
-        const { link } = result.data;
+      if (type === "text" || type === "URL") {
         await ContentModel.findOneAndUpdate(
           { _id: id, userId: (req as any).userId },
-          { title, link, type },
+          { title, type, link },
           { new: true }
         );
-
-        return res.json({
-          message: "Content Updated (Text/URL)",
-        });
+        return res.json({ message: "Content updated (Text/URL)" });
       }
-      if (type == "image") {
-        const link = `/uploads/images/${req.file?.filename}`;
-        await ContentModel.findOneAndUpdate(
-          { _id: id, userId: (req as any).userId },
-          { title, link, type },
-          { new: true }
-        );
 
-        return res.json({
-          message: "Content Updated (Image)",
-          filePath: link,
-        });
-      } else if (type == "video") {
-        const link = `/uploads/videos/${req.file?.filename}`;
+      if (req.file) {
+        const uploaded = await uploadToCloudinary(req.file.buffer, "auto");
         await ContentModel.findOneAndUpdate(
           { _id: id, userId: (req as any).userId },
-          { title, link, type },
+          { title, type, link: uploaded.secure_url },
           { new: true }
         );
         return res.json({
-          message: "Content updated (Video)",
-          filePath: link,
+          message: `Content updated (${type})`,
+          filePath: uploaded.secure_url,
         });
       }
 
-      res.json({
-        message: "Content updated successfully",
-      });
+      res.status(400).json({ message: "File missing" });
     } catch (err) {
       console.error(err);
       res.status(500).json({ message: "Update failed" });
@@ -228,46 +180,30 @@ contentRouter.put(
   }
 );
 
-const deleteContentZSchema = z.object({
-  title: z.string().min(4),
-  type: z.enum(["text", "URL", "image", "video"]),
-  link: z.string().min(12).optional(),
-});
-
 contentRouter.delete("/", authMiddleware, async (req, res) => {
   const result = deleteContentZSchema.safeParse(req.body);
-
   if (!result.success) {
-    return res.status(400).json({
-      message: "Invalid Input",
-    });
+    return res.status(400).json({ message: "Invalid Input" });
   }
+
   const { title, link, type } = result.data;
-
-  const resultId = await ContentModel.find(
-    {
-      title,
-      link,
-      type,
-    },
-    {
-      _id: 1,
+  try {
+    const found = await ContentModel.find({ title, link, type }, { _id: 1 });
+    if (!found.length) {
+      return res.status(404).json({ message: "Content not found" });
     }
-  );
 
-  const contentId = resultId[0]._id;
-  console.log(contentId);
+    await ContentModel.deleteMany({
+      _id: found[0]._id,
+      // @ts-ignore
+      userId: req.userId,
+    });
 
-  await ContentModel.deleteMany({
-    _id: contentId,
-    // @ts-ignore
-    userId: req.userId,
-  });
-
-  res.json({
-    message: "Deleted",
-  });
+    res.json({ message: "Deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Delete failed" });
+  }
 });
-
 
 export default contentRouter;
