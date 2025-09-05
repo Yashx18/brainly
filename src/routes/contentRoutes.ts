@@ -89,6 +89,8 @@ contentRouter.post(
           tags: [req.userId],
         });
 
+        console.log(uploaded.secure_url);
+
         return res.json({
           message: `Content added (${type})`,
           filePath: uploaded.secure_url,
