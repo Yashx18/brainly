@@ -42,7 +42,7 @@ brainRouter.post(
         message: "Link generated successfully.",
       });
 
-      console.log(`/api/brain/${hash}`);
+      // console.log(`/api/brain/${hash}`);
     } else {
       await LinkModel.deleteMany({
         // @ts-ignore
@@ -55,7 +55,7 @@ brainRouter.post(
   }
 );
 
-brainRouter.post("/:sharelink", async (req: Request, res: Response) => {
+brainRouter.get("/:sharelink", async (req: Request, res: Response) => {
   const hash = req.params.sharelink;
   console.log(hash);
 
