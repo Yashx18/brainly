@@ -16,15 +16,9 @@ const PORT = process.env.PORT;
 const mongoURL = process.env.MONGO_URL;
 
 app.use(express.json());
-
-if (!process.env.APP_URL || !process.env.LOCAL_APP_URL) {
-  throw new Error("Origin not found");
-}
-const allowedOrigins: any = [process.env.APP_URL, process.env.LOCAL_APP_URL];
-
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: process.env.APP_URL,
     credentials: true,
   })
 );
@@ -32,9 +26,9 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 app.use(cookieParser());
 
-app.use("/api/content", contentRouter);
-app.use("/api/auth", authRouter);
-app.use("/api/brain", brainRouter);
+app.use("/api/content", contentRouter)
+app.use("/api/auth", authRouter)
+app.use("/api/brain", brainRouter)
 
 async function connectdb() {
   await mongoose.connect(`${mongoURL}`);
@@ -43,5 +37,6 @@ async function connectdb() {
 
 connectdb();
 app.listen(PORT, () => {
-  console.log("Server running");
+  console.log('Server running');
+  
 });
